@@ -7,6 +7,14 @@ import javax.swing.table.*;
 
 public class StudentDashboardPanel extends JPanel implements ActionListener {
 
+    private static final long serialVersionUID = 1L;
+
+    // Matches the colours used by AccountsGUI.
+    private final Color background = new Color(235, 242, 250);
+    private final Color headingColor = new Color(35, 65, 100);
+    private final Color buttonColor = new Color(205, 222, 240);
+    private final Color cardColor = Color.WHITE;
+
     private String studentId;
     private String simulationTime;
 
@@ -45,7 +53,9 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
         this.manager = manager;
         simulationTime = null;
 
-        setLayout(new BorderLayout(10, 10));
+        setLayout(new BorderLayout(15, 15));
+        setBackground(background);
+        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         createAllowancePanel();
         createJobFormPanel();
@@ -58,12 +68,13 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
 
     private void createAllowancePanel() {
 
-        JPanel allowancePanel = new JPanel(new GridLayout(1, 4, 10, 10));
+        JPanel allowancePanel = new JPanel(new GridLayout(1, 4, 12, 0));
+        allowancePanel.setBackground(background);
 
-        allocatedLabel = new JLabel("Allocated: 0");
-        usedLabel = new JLabel("Used: 0");
-        reservedLabel = new JLabel("Reserved: 0");
-        availableLabel = new JLabel("Available: 0");
+        allocatedLabel = allowanceLabel("Allocated: 0");
+        usedLabel = allowanceLabel("Used: 0");
+        reservedLabel = allowanceLabel("Reserved: 0");
+        availableLabel = allowanceLabel("Available: 0");
 
         allowancePanel.add(allocatedLabel);
         allowancePanel.add(usedLabel);
@@ -75,11 +86,19 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
 
     private void createJobFormPanel() {
 
-        JPanel formPanel = new JPanel(new GridLayout(5, 2, 10, 10));
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBackground(cardColor);
+        formPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(190, 205, 220)),
+                BorderFactory.createEmptyBorder(15, 15, 15, 15)
+        ));
+        formPanel.setPreferredSize(new Dimension(390, 0));
 
         titleField = new JTextField();
         applicationField = new JTextField();
         descriptionArea = new JTextArea(3, 20);
+        descriptionArea.setLineWrap(true);
+        descriptionArea.setWrapStyleWord(true);
 
         String[] sizes = {"Small", "Medium", "Large", "Very large"};
 
@@ -88,20 +107,29 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
 
         durationLabel = new JLabel("5 minutes");
 
-        formPanel.add(new JLabel("Job title:"));
-        formPanel.add(titleField);
+        GridBagConstraints label = new GridBagConstraints();
+        label.gridx = 0;
+        label.anchor = GridBagConstraints.WEST;
+        label.insets = new Insets(7, 0, 7, 12);
 
-        formPanel.add(new JLabel("Application name:"));
-        formPanel.add(applicationField);
+        GridBagConstraints field = new GridBagConstraints();
+        field.gridx = 1;
+        field.weightx = 1;
+        field.fill = GridBagConstraints.HORIZONTAL;
+        field.insets = new Insets(7, 0, 7, 0);
 
-        formPanel.add(new JLabel("Description:"));
-        formPanel.add(new JScrollPane(descriptionArea));
+        addFormRow(formPanel, label, field, 0, "Job title:", titleField);
+        addFormRow(formPanel, label, field, 1, "Application name:", applicationField);
+        addFormRow(formPanel, label, field, 2, "Description:", new JScrollPane(descriptionArea));
+        addFormRow(formPanel, label, field, 3, "Task size:", taskSizeBox);
+        addFormRow(formPanel, label, field, 4, "Duration:", durationLabel);
 
-        formPanel.add(new JLabel("Task size:"));
-        formPanel.add(taskSizeBox);
-
-        formPanel.add(new JLabel("Duration:"));
-        formPanel.add(durationLabel);
+        GridBagConstraints spacer = new GridBagConstraints();
+        spacer.gridx = 0;
+        spacer.gridy = 5;
+        spacer.gridwidth = 2;
+        spacer.weighty = 1;
+        formPanel.add(Box.createVerticalGlue(), spacer);
 
         add(formPanel, BorderLayout.WEST);
     }
@@ -118,16 +146,33 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
                 "GPU"
         };
 
-        tableModel = new DefaultTableModel(columns, 0);
+        tableModel = new DefaultTableModel(columns, 0) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
 
         jobsTable = new JTable(tableModel);
+        jobsTable.setRowHeight(25);
+        jobsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        jobsTable.setGridColor(new Color(210, 220, 230));
+        jobsTable.getTableHeader().setBackground(headingColor);
+        jobsTable.getTableHeader().setForeground(Color.WHITE);
+        jobsTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
 
-        add(new JScrollPane(jobsTable), BorderLayout.CENTER);
+        JScrollPane tableScroll = new JScrollPane(jobsTable);
+        tableScroll.setBorder(BorderFactory.createLineBorder(new Color(190, 205, 220)));
+
+        add(tableScroll, BorderLayout.CENTER);
     }
 
     private void createButtonPanel() {
 
-        JPanel buttonPanel = new JPanel();
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 5));
+        buttonPanel.setBackground(background);
 
         submitButton = new JButton("Submit Job");
         cancelButton = new JButton("Cancel Job");
@@ -138,6 +183,12 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
         searchButton = new JButton("Search");
         showAllButton = new JButton("Show All");
 
+        styleButton(submitButton);
+        styleButton(cancelButton);
+        styleButton(detailsButton);
+        styleButton(searchButton);
+        styleButton(showAllButton);
+
         submitButton.addActionListener(this);
         cancelButton.addActionListener(this);
         detailsButton.addActionListener(this);
@@ -147,12 +198,52 @@ public class StudentDashboardPanel extends JPanel implements ActionListener {
         buttonPanel.add(submitButton);
         buttonPanel.add(cancelButton);
         buttonPanel.add(detailsButton);
-        buttonPanel.add(new JLabel("Search:"));
+        JLabel searchLabel = new JLabel("Search:");
+        searchLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+        searchLabel.setForeground(headingColor);
+        buttonPanel.add(searchLabel);
         buttonPanel.add(searchField);
         buttonPanel.add(searchButton);
         buttonPanel.add(showAllButton);
 
         add(buttonPanel, BorderLayout.SOUTH);
+    }
+
+    private JLabel allowanceLabel(String text) {
+        JLabel label = new JLabel(text, SwingConstants.CENTER);
+        label.setOpaque(true);
+        label.setBackground(cardColor);
+        label.setForeground(headingColor);
+        label.setFont(new Font("SansSerif", Font.BOLD, 14));
+        label.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(190, 205, 220)),
+                BorderFactory.createEmptyBorder(12, 8, 12, 8)
+        ));
+        return label;
+    }
+
+    private void addFormRow(JPanel panel, GridBagConstraints labelConstraints,
+            GridBagConstraints fieldConstraints, int row, String text, Component component) {
+
+        JLabel formLabel = new JLabel(text);
+        formLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+        formLabel.setForeground(headingColor);
+
+        labelConstraints.gridy = row;
+        fieldConstraints.gridy = row;
+
+        panel.add(formLabel, labelConstraints);
+        panel.add(component, fieldConstraints);
+    }
+
+    private void styleButton(JButton button) {
+        button.setBackground(buttonColor);
+        button.setForeground(Color.BLACK);
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(150, 170, 190)),
+                BorderFactory.createEmptyBorder(7, 14, 7, 14)
+        ));
     }
 
     @Override
