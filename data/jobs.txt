@@ -1,0 +1,22 @@
+1|S001|Data cleaning script|Python (pandas)|Removes duplicates and empty rows from the survey data set.|Small|23/11/2026 09:00|Completed|1|23/11/2026 09:00|23/11/2026 09:05|5
+2|S002|CNN baseline training|PyTorch|Trains a small convolutional network on CIFAR-10 as a baseline.|Medium|23/11/2026 09:00|Completed|2|23/11/2026 09:00|23/11/2026 09:15|15
+3|S003|CUDA matrix benchmark|CUDA samples|Measures matrix multiplication speed for the lab report.|Small|23/11/2026 09:00|Completed|3|23/11/2026 09:00|23/11/2026 09:05|5
+4|S004|BERT fine-tuning|Hugging Face Transformers|Fine-tunes BERT-base on the course sentiment data.|Large|23/11/2026 09:00|Completed|4|23/11/2026 09:00|23/11/2026 09:30|30
+5|S005|Image segmentation|TensorFlow|U-Net segmentation of road images, first full run.|Medium|23/11/2026 09:00|Completed|1|23/11/2026 09:05|23/11/2026 09:20|15
+6|S001|Hyperparameter sweep A|scikit-learn|Grid search over learning rates for the regression model.|Small|23/11/2026 09:00|Completed|3|23/11/2026 09:05|23/11/2026 09:10|5
+7|S002|Data augmentation test|PyTorch|Tests random crops and flips on the training images.|Large|23/11/2026 09:02|Cancelled||||0
+8|S003|Protein structure demo|OpenFold|Predicts the structure of a short demo protein sequence.|Medium|23/11/2026 09:06|Cancelled|3|23/11/2026 09:10|23/11/2026 09:20|10
+9|S004|Speech recognition training|Whisper|Trains a small speech model on the lab recordings.|Very large|23/11/2026 09:12|Cancelled|2|23/11/2026 09:15|23/11/2026 09:40|25
+10|S001|Reinforcement learning agent|Stable-Baselines3|PPO agent for the cart-pole task, 200k steps.|Large|23/11/2026 09:21|Completed|1|23/11/2026 09:21|23/11/2026 09:51|30
+11|S005|Segmentation v2 check|TensorFlow|Quick check of the improved segmentation model.|Small|23/11/2026 09:22|Completed|3|23/11/2026 09:22|23/11/2026 09:27|5
+12|S002|Transformer from scratch|PyTorch|Trains a tiny transformer language model on course notes.|Large|23/11/2026 09:24|Completed|3|23/11/2026 09:27|23/11/2026 09:57|30
+13|S003|Graph neural network|PyTorch Geometric|Node classification on the citation graph.|Medium|23/11/2026 09:26|Completed|4|23/11/2026 09:30|23/11/2026 09:45|15
+14|S005|Segmentation v2 check (copy)|TensorFlow|Same job as before, submitted twice by mistake.|Small|23/11/2026 09:35|Cancelled||||0
+15|S004|Object detection|YOLOv8|Detects vehicles in the campus parking camera images.|Large|23/11/2026 09:41|Running|2|23/11/2026 09:41||0
+16|S001|Hyperparameter sweep B|scikit-learn|Second grid search with a wider range of values.|Medium|23/11/2026 09:50|Running|4|23/11/2026 09:50||0
+17|S002|Language model evaluation|PyTorch|Evaluates the transformer on the held-out test set.|Medium|23/11/2026 09:52|Running|1|23/11/2026 09:52||0
+18|S005|Satellite image classifier|TensorFlow|Classifies land use in satellite images (uses the last 30 minutes).|Large|23/11/2026 09:58|Running|3|23/11/2026 09:58||0
+19|S003|Molecular dynamics test|GROMACS|Short water box simulation to test the setup.|Small|23/11/2026 10:02|Queued||||0
+20|S004|Video captioning|Hugging Face Transformers|Generates captions for the lecture video clips.|Very large|23/11/2026 10:03|Queued||||0
+21|S001|Model distillation|PyTorch|Distils the large model into a smaller student model.|Medium|23/11/2026 10:03|Queued||||0
+22|S002|Ablation study|PyTorch|Removes one layer at a time to measure its effect.|Large|23/11/2026 10:03|Queued||||0

@@ -1,0 +1,57 @@
+GPU_ACCOUNTS_V1
+S001
+Aisha Al Mansoori
+aisha.almansoori@example.com
++971 50 111 0001
+pass001
+Approved
+100
+S002
+Omar Haddad
+omar.haddad@example.com
++971 50 111 0002
+pass002
+Approved
+100
+S003
+Fatima Khan
+fatima.khan@example.com
++971 50 111 0003
+pass003
+Approved
+50
+S004
+Yousef Rahman
+yousef.rahman@example.com
++971 50 111 0004
+pass004
+Approved
+200
+S005
+Mariam Saleh
+mariam.saleh@example.com
++971 50 111 0005
+pass005
+Approved
+50
+S006
+Khalid Ibrahim
+khalid.ibrahim@example.com
++971 50 111 0006
+pass006
+Pending
+0
+S007
+Noor Hassan
+noor.hassan@example.com
++971 50 111 0007
+pass007
+Pending
+0
+S008
+Rashid Ali
+rashid.ali@example.com
++971 50 111 0008
+pass008
+Rejected
+0

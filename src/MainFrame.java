@@ -116,15 +116,23 @@ public class MainFrame extends AccountsGUI {
                         + "and start again without it.", "File error", JOptionPane.DEFAULT_OPTION,
                         JOptionPane.ERROR_MESSAGE, null, options, options[1]);
 
-                String name = e.getMessage().startsWith(new File(folder, GpuSystem.ACCOUNTS_FILE).getPath())
-                        ? GpuSystem.ACCOUNTS_FILE : GpuSystem.SIMULATION_FILE;
-                File damaged = new File(folder, name);
-                File backup = new File(folder, name + ".damaged-" + new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date()));
+                // accounts.txt is kept aside on its own; the other files depend on each other.
+                String[] names = e.getMessage().startsWith(new File(folder, GpuSystem.ACCOUNTS_FILE).getPath())
+                        ? new String[] {GpuSystem.ACCOUNTS_FILE} : GpuSystem.SIMULATION_FILES;
+                String ending = ".damaged-" + new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
 
-                if (choice != 0 || !damaged.renameTo(backup)) {
+                if (choice != 0) {
                     return null;
                 }
-                JOptionPane.showMessageDialog(null, "The damaged file was kept as:\n" + backup.getPath());
+                for (String name : names) {
+                    File file = new File(folder, name);
+
+                    if (file.exists() && !file.renameTo(new File(folder, name + ending))) {
+                        return null;
+                    }
+                }
+                JOptionPane.showMessageDialog(null, "The damaged data was kept in files ending with " + ending
+                        + "\nin the folder " + new File(folder).getAbsolutePath());
             }
         }
     }

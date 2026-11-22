@@ -12,11 +12,20 @@ import java.util.List;
 // It extends JobManager, so Person 2's StudentDashboardPanel uses it unchanged, while every
 // accepted job also joins Person 3's Scheduler queue (inheritance and polymorphism).
 // As the SchedulerListener it settles allowances when jobs complete or are cancelled.
-// AccountManager saves accounts.txt; this class saves everything else in simulation.txt.
+// AccountManager saves accounts.txt; this class saves everything else in separate files.
 public class GpuSystem extends JobManager implements SchedulerListener {
 
     public static final String ACCOUNTS_FILE = "accounts.txt";
-    public static final String SIMULATION_FILE = "simulation.txt";
+    public static final String CLOCK_FILE = "clock.txt";
+    public static final String ALLOWANCES_FILE = "allowances.txt";
+    public static final String HISTORY_FILE = "allowance_history.txt";
+    public static final String JOBS_FILE = "jobs.txt";
+    public static final String CANCELLATIONS_FILE = "cancellations.txt";
+    public static final String GPUS_FILE = "gpus.txt";
+
+    // The files saved by this class, in the order they are loaded.
+    public static final String[] SIMULATION_FILES = {CLOCK_FILE, ALLOWANCES_FILE, HISTORY_FILE,
+        JOBS_FILE, CANCELLATIONS_FILE, GPUS_FILE};
 
     private File folder;
     private AccountManager accounts;
@@ -291,14 +300,16 @@ public class GpuSystem extends JobManager implements SchedulerListener {
         }
     }
 
-    // ----- storage (simulation.txt) -----
-    // One record per line, fields separated by |. In text, \ | and line breaks are written as
-    // \\ \p \n so any title or reason can be stored. An empty field means "none".
-    //   CLOCK|start|now|elapsed minutes|busy GPU minutes
-    //   ALLOWANCE|student|allocated|used|reserved
-    //   HISTORY|student|record
-    //   JOB|id|student|title|application|description|size|submitted|status|gpu|start|finish|
-    //       cancelled at|cancelled by|reason|charged
+    // ----- storage -----
+    // AccountManager saves accounts.txt. This class saves the rest, one file for each kind of
+    // data, one record per line, fields separated by |. In text, \ | and line breaks are written
+    // as \\ \p \n so any title or reason can be stored. An empty field means "none".
+    //   clock.txt              start|now|elapsed minutes|busy GPU minutes
+    //   allowances.txt         student|allocated|used|reserved
+    //   allowance_history.txt  student|record
+    //   jobs.txt               id|student|title|application|description|size|submitted|status|gpu|start|finish|charged
+    //   cancellations.txt      job id|cancelled at|cancelled by|reason
+    //   gpus.txt               gpu|running job id|minutes run
 
     // Saves after every change. A problem is kept in saveError and shown by the window.
     private void changed() {
@@ -310,32 +321,52 @@ public class GpuSystem extends JobManager implements SchedulerListener {
     }
 
     public void save() throws IOException {
-        StringBuilder out = new StringBuilder();
+        StringBuilder clockText = new StringBuilder();
+        StringBuilder allowances = new StringBuilder();
+        StringBuilder history = new StringBuilder();
+        StringBuilder jobs = new StringBuilder();
+        StringBuilder cancellations = new StringBuilder();
+        StringBuilder gpus = new StringBuilder();
 
         if (clock.isInitialised()) {
-            line(out, "CLOCK", SimulationClock.format(clock.getStart()), clock.formattedNow(),
+            line(clockText, SimulationClock.format(clock.getStart()), clock.formattedNow(),
                     clock.getElapsedMinutes(), scheduler.getTotalBusyGpuMinutes());
         }
         for (TimeAllowance a : getAllowances()) {
-            line(out, "ALLOWANCE", a.getStudentId(), a.getAllocatedMinutes(), a.getUsedMinutes(), a.getReservedMinutes());
+            line(allowances, a.getStudentId(), a.getAllocatedMinutes(), a.getUsedMinutes(), a.getReservedMinutes());
 
             for (String record : a.getGrantHistory()) {
-                line(out, "HISTORY", a.getStudentId(), record);
+                line(history, a.getStudentId(), record);
             }
         }
         for (Job j : getJobs()) {
-            line(out, "JOB", j.getJobId(), j.getStudentId(), j.getTitle(), j.getApplicationName(), j.getDescription(),
+            line(jobs, j.getJobId(), j.getStudentId(), j.getTitle(), j.getApplicationName(), j.getDescription(),
                     j.getTaskSize(), j.getSubmissionTime(), j.getStatus(), (j.getAssignedGpuId() > 0) ? j.getAssignedGpuId() : null,
-                    j.getStartTime(), j.getFinishTime(), j.getCancellationTime(), j.getCancelledBy(),
-                    j.getCancellationReason(), j.getChargedMinutes());
+                    j.getStartTime(), j.getFinishTime(), j.getChargedMinutes());
+
+            if (j.getCancellationTime() != null) {
+                line(cancellations, j.getJobId(), j.getCancellationTime(), j.getCancelledBy(), j.getCancellationReason());
+            }
+        }
+        for (GPU gpu : scheduler.getGpus()) {
+            line(gpus, gpu.getId(), gpu.isBusy() ? gpu.getCurrentJob().getJobId() : null, gpu.getMinutesRun());
         }
 
-        // Write a temporary file first, so a failed save never leaves half a file.
-        File file = new File(folder, SIMULATION_FILE);
-        File temp = new File(folder, SIMULATION_FILE + ".tmp");
-        Files.write(temp.toPath(), out.toString().getBytes(StandardCharsets.UTF_8));
-        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        write(CLOCK_FILE, clockText);
+        write(ALLOWANCES_FILE, allowances);
+        write(HISTORY_FILE, history);
+        write(JOBS_FILE, jobs);
+        write(CANCELLATIONS_FILE, cancellations);
+        write(GPUS_FILE, gpus);
         saveError = null;
+    }
+
+    // Writes a temporary file first, so a failed save never leaves half a file.
+    private void write(String name, StringBuilder text) throws IOException {
+        File file = new File(folder, name);
+        File temp = new File(folder, name + ".tmp");
+        Files.write(temp.toPath(), text.toString().getBytes(StandardCharsets.UTF_8));
+        Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
     private static void line(StringBuilder out, Object... fields) {
@@ -351,98 +382,140 @@ public class GpuSystem extends JobManager implements SchedulerListener {
         out.append('\n');
     }
 
-    // Restores the saved state. A problem is reported with the file, line and reason.
+    // Restores the saved state, file by file. A problem is reported with the file, line and reason.
     private void load() throws IOException {
-        File file = new File(folder, SIMULATION_FILE);
+        for (String name : SIMULATION_FILES) {
+            File file = new File(folder, name);
 
-        if (!file.exists()) {
-            return;
-        }
-        List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
+            if (!file.exists()) {
+                continue;
+            }
+            List<String> lines = Files.readAllLines(file.toPath(), StandardCharsets.UTF_8);
 
-        for (int i = 0; i < lines.size(); i++) {
-            try {
-                if (!lines.get(i).trim().isEmpty()) {
-                    restore(lines.get(i).split("\\|", -1));
+            for (int i = 0; i < lines.size(); i++) {
+                try {
+                    if (!lines.get(i).trim().isEmpty()) {
+                        restore(name, lines.get(i).split("\\|", -1));
+                    }
+                } catch (RuntimeException e) {
+                    throw new IOException(file.getPath() + ", line " + (i + 1) + ": " + e.getMessage());
                 }
-            } catch (RuntimeException e) {
-                throw new IOException(file.getPath() + ", line " + (i + 1) + ": " + e.getMessage());
+            }
+        }
+
+        // Every job must now be back in the scheduler.
+        ArrayList<Job> restored = scheduler.getHistory();
+
+        for (Job job : getJobs()) {
+            if (!restored.contains(job)) {
+                throw new IOException(new File(folder, JOBS_FILE).getPath() + ": job J" + job.getJobId()
+                        + (job.isSettled() ? " is cancelled but has no line in " + CANCELLATIONS_FILE
+                                : " is running but has no GPU in " + GPUS_FILE));
             }
         }
     }
 
-    private void restore(String[] f) {
-        if (f[0].equals("CLOCK") && f.length == 5) {
-            clock.restore(time(f[1]), time(f[2]), number(f[3]));
-            scheduler.restoreBusyMinutes(number(f[4]));
+    private void restore(String file, String[] f) {
+        if (file.equals(CLOCK_FILE) && f.length == 4) {
+            clock.restore(time(f[0]), time(f[1]), number(f[2]));
+            scheduler.restoreBusyMinutes(number(f[3]));
 
-        } else if (f[0].equals("ALLOWANCE") && f.length == 5) {
-            TimeAllowance allowance = new TimeAllowance(text(f[1]), number(f[2]), number(f[3]), number(f[4]));
+        } else if (file.equals(ALLOWANCES_FILE) && f.length == 4) {
+            TimeAllowance allowance = new TimeAllowance(text(f[0]), number(f[1]), number(f[2]), number(f[3]));
 
             if (allowance.getAvailableMinutes() < 0 || !addStudentAllowance(allowance)) {
-                throw new IllegalArgumentException("invalid or repeated allowance for " + f[1]);
+                throw new IllegalArgumentException("invalid or repeated allowance for " + f[0]);
             }
 
-        } else if (f[0].equals("HISTORY") && f.length == 3) {
-            allowanceOf(text(f[1])).getGrantHistory().add(text(f[2]));
+        } else if (file.equals(HISTORY_FILE) && f.length == 2) {
+            allowanceOf(text(f[0])).getGrantHistory().add(text(f[1]));
 
-        } else if (f[0].equals("JOB") && f.length == 16) {
+        } else if (file.equals(JOBS_FILE) && f.length == 12) {
             restoreJob(f);
 
+        } else if (file.equals(CANCELLATIONS_FILE) && f.length == 4) {
+            restoreCancellation(f);
+
+        } else if (file.equals(GPUS_FILE) && f.length == 3) {
+            restoreGpu(f);
+
         } else {
-            throw new IllegalArgumentException("unknown record or wrong number of fields");
+            throw new IllegalArgumentException("wrong number of fields");
         }
     }
 
-    // Rebuilds a job by repeating its state changes, then puts it back in the queue or on its GPU.
+    // Rebuilds a job by repeating its state changes. Waiting and completed jobs go back to the
+    // scheduler now; cancelled jobs wait for cancellations.txt and running jobs for gpus.txt.
     private void restoreJob(String[] f) {
-        int id = number(f[1]);
-        String status = f[8];
-        int gpu = f[9].isEmpty() ? -1 : number(f[9]);
-        allowanceOf(text(f[2]));
+        int id = number(f[0]);
+        String status = f[7];
+        int gpu = f[8].isEmpty() ? -1 : number(f[8]);
+        allowanceOf(text(f[1]));
 
         if (findJob(id) != null) {
             throw new IllegalArgumentException("job J" + id + " appears twice");
         }
-        for (int i = 10; i <= 12; i++) {
+        for (int i = 9; i <= 10; i++) {
             if (!f[i].isEmpty()) {
                 time(f[i]);
             }
         }
-        time(f[7]);
-        Job job = new Job(id, text(f[2]), text(f[3]), text(f[4]), text(f[5]), text(f[6]), text(f[7]));
+        time(f[6]);
+        Job job = new Job(id, text(f[1]), text(f[2]), text(f[3]), text(f[4]), text(f[5]), text(f[6]));
 
         if (job.getEstimatedDuration() == 0) {
-            throw new IllegalArgumentException("unknown task size \"" + f[6] + "\"");
+            throw new IllegalArgumentException("unknown task size \"" + f[5] + "\"");
         }
-        if (!f[10].isEmpty()) {
+        if (!f[9].isEmpty()) {
             if (gpu < 1 || gpu > Scheduler.GPU_COUNT) {
                 throw new IllegalArgumentException("the GPU number must be 1 to " + Scheduler.GPU_COUNT);
             }
-            job.startJob(gpu, text(f[10]));
+            job.startJob(gpu, text(f[9]));
         }
         if (status.equals(Scheduler.COMPLETED)) {
-            job.completeJob(text(f[11]));
-        } else if (status.equals(Scheduler.CANCELLED)) {
-            job.cancelJob(text(f[12]), optional(f[13]), optional(f[14]));
+            job.completeJob(text(f[10]));
         }
-        if (!job.getStatus().equals(status)) {
+        if (!job.getStatus().equals(status) && !status.equals(Scheduler.CANCELLED)) {
             throw new IllegalArgumentException("job J" + id + " cannot be \"" + status + "\" with these times");
         }
-
-        int minutesRun = 0;
-
         if (status.equals(Scheduler.COMPLETED) || status.equals(Scheduler.CANCELLED)) {
-            job.settleJob(number(f[15]));
-
-        } else if (status.equals(Scheduler.RUNNING)) {
-            minutesRun = minutesBetween(job.getStartTime(), clock.formattedNow());
-
-            if (scheduler.getGpu(gpu).isBusy() || minutesRun < 0 || minutesRun >= job.getEstimatedDuration()) {
-                throw new IllegalArgumentException("running job J" + id + " does not match the clock or GPU" + gpu);
-            }
+            job.settleJob(number(f[11]));
         }
         addLoadedJob(job);
+
+        if (status.equals(Scheduler.QUEUED) || status.equals(Scheduler.COMPLETED)) {
+            scheduler.registerRestoredJob(job, 0);
+        }
+    }
+
+    private void restoreCancellation(String[] f) {
+        Job job = findJob(number(f[0]));
+        time(f[1]);
+
+        if (job == null || !job.isSettled() || !job.cancelJob(text(f[1]), text(f[2]), text(f[3]))) {
+            throw new IllegalArgumentException("job J" + f[0] + " is not a cancelled job in " + JOBS_FILE);
+        }
+        scheduler.registerRestoredJob(job, 0);
+    }
+
+    // Puts a running job back on its GPU with the minutes it has already run.
+    private void restoreGpu(String[] f) {
+        int gpu = number(f[0]);
+
+        if (gpu < 1 || gpu > Scheduler.GPU_COUNT || scheduler.getGpu(gpu).isBusy()) {
+            throw new IllegalArgumentException("invalid or repeated GPU \"" + f[0] + "\"");
+        }
+        if (f[1].isEmpty()) {
+            return;     // the GPU is free
+        }
+        Job job = findJob(number(f[1]));
+        int minutesRun = number(f[2]);
+
+        if (job == null || job.isSettled() || !job.getStatus().equals(Scheduler.RUNNING) || job.getAssignedGpuId() != gpu
+                || minutesRun != minutesBetween(job.getStartTime(), clock.formattedNow())) {
+            throw new IllegalArgumentException("job J" + f[1] + " is not running on GPU" + gpu + " in " + JOBS_FILE
+                    + " and " + CLOCK_FILE);
+        }
         scheduler.registerRestoredJob(job, minutesRun);
     }
 
@@ -472,10 +545,6 @@ public class GpuSystem extends JobManager implements SchedulerListener {
         } catch (RuntimeException e) {
             throw new IllegalArgumentException("\"" + text + "\" must be a date and time (dd/MM/yyyy HH:mm)");
         }
-    }
-
-    private static String optional(String field) {
-        return field.isEmpty() ? null : text(field);
     }
 
     // Undoes the escaping done by line().
